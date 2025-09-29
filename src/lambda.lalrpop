@@ -1,0 +1,59 @@
+use std::str::FromStr;
+use crate::ast::*;
+
+grammar;
+
+pub Program: Vec<Statement> = {
+    Statement*,
+};
+
+Statement: Statement = {
+    "let" <var:Var> <r#type:Annotation> "=" <expr:Expr> Terminate => Statement::LetDeclaration {
+        var,
+        r#type,
+        value: *expr,
+    },
+
+    <expr:Expr> Terminate => Statement::Expression(*expr),
+};
+
+Annotation: Option<Primitive> = {
+  ":" <r#type:Type> => Some(r#type),
+  => None,
+};
+
+Type: Primitive = {
+  "Num" => Primitive::Num,
+  "Str" => Primitive::Str,
+  "Bool" => Primitive::Bool,
+};
+
+// Terminate = "\n";
+Terminate = ";";
+
+Expr: Box<Expr> = {
+    <l:Expr> "+" <r:Factor> => Box::new(Expr::BinaryOp(l, BinaryOp::Add, r)),
+    <l:Expr> "-" <r:Factor> => Box::new(Expr::BinaryOp(l, BinaryOp::Subtract, r)),
+    Factor,
+};
+
+Factor: Box<Expr> = {
+    <l:Factor> "*" <r:Term> => Box::new(Expr::BinaryOp(l, BinaryOp::Multiply, r)),
+    <l:Factor> "/" <r:Term> => Box::new(Expr::BinaryOp(l, BinaryOp::Divide, r)),
+    Unary,
+};
+
+Unary: Box<Expr> = {
+  "-" <expr:Unary> => Box::new(Expr::UnaryOp(UnaryOp::Negate, expr)),
+  Term,
+};
+
+Term: Box<Expr> = {
+    Num => Box::new(Expr::Num(<>)),
+    Var => Box::new(Expr::Var(<>)),
+    <n:Num> <v:Var> => Box::new(Expr::BinaryOp(Box::new(Expr::Num(n)), BinaryOp::Multiply, Box::new(Expr::Var(v)))),
+    "(" <expr:Expr> ")" => expr,
+};
+
+Var: String = r"[a-zA-Z]+" => String::from(<>);
+Num: f64 = r"[0-9]+(\.[0-9]+)?" => f64::from_str(<>).unwrap();
