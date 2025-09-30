@@ -8,52 +8,54 @@ pub Program: Vec<Statement> = {
 };
 
 Statement: Statement = {
-    "let" <var:Var> <r#type:Annotation> "=" <expr:Expr> Terminate => Statement::LetDeclaration {
-        var,
-        r#type,
-        value: *expr,
-    },
-
-    <expr:Expr> Terminate => Statement::Expression(*expr),
+    <declar:LetDeclaration> Terminate => declar,
+    <expr:Expr> Terminate => Statement::Expression(expr),
 };
+
+LetDeclaration: Statement = "let" <declar:Assignment> => declar;
+Assignment: Statement = <var:Var> <r#type:Annotation> "=" <value:Expr> => Statement::Assignment { var, r#type, value };
 
 Annotation: Option<Primitive> = {
-  ":" <r#type:Type> => Some(r#type),
-  => None,
+    ":" <t:Type> => Some(t),
+    => None,
 };
 
-Type: Primitive = {
-  "Num" => Primitive::Num,
-  "Str" => Primitive::Str,
-  "Bool" => Primitive::Bool,
-};
-
-// Terminate = "\n";
 Terminate = ";";
 
 Expr: Box<Expr> = {
-    <l:Expr> "+" <r:Factor> => Box::new(Expr::BinaryOp(l, BinaryOp::Add, r)),
-    <l:Expr> "-" <r:Factor> => Box::new(Expr::BinaryOp(l, BinaryOp::Subtract, r)),
+    <l:Expr> "+" <r:Term> => Box::new(Expr::BinaryOp(l, BinaryOp::Add, r)),
+    <l:Expr> "-" <r:Term> => Box::new(Expr::BinaryOp(l, BinaryOp::Subtract, r)),
+    Term,
+};
+
+Term: Box<Expr> = {
+    <l:Factor> "*" <r:Atom> => Box::new(Expr::BinaryOp(l, BinaryOp::Multiply, r)),
+    <l:Factor> "/" <r:Atom> => Box::new(Expr::BinaryOp(l, BinaryOp::Divide, r)),
     Factor,
 };
 
 Factor: Box<Expr> = {
-    <l:Factor> "*" <r:Term> => Box::new(Expr::BinaryOp(l, BinaryOp::Multiply, r)),
-    <l:Factor> "/" <r:Term> => Box::new(Expr::BinaryOp(l, BinaryOp::Divide, r)),
-    Unary,
+    "-" <expr:Atom> => Box::new(Expr::UnaryOp(UnaryOp::Negate, expr)),
+    Atom,
 };
 
-Unary: Box<Expr> = {
-  "-" <expr:Unary> => Box::new(Expr::UnaryOp(UnaryOp::Negate, expr)),
-  Term,
-};
-
-Term: Box<Expr> = {
+// Handles unary operators and atoms (literals, variables, parentheses)
+Atom: Box<Expr> = {
+    <n:Num> <v:Var> => Box::new(Expr::BinaryOp(Box::new(Expr::Num(n)), BinaryOp::Multiply, Box::new(Expr::Var(v)))),
     Num => Box::new(Expr::Num(<>)),
     Var => Box::new(Expr::Var(<>)),
-    <n:Num> <v:Var> => Box::new(Expr::BinaryOp(Box::new(Expr::Num(n)), BinaryOp::Multiply, Box::new(Expr::Var(v)))),
+    Bool => Box::new(Expr::Bool(<>)),
+    Str => Box::new(Expr::Str(<>)),
     "(" <expr:Expr> ")" => expr,
 };
 
+Type: Primitive = {
+    "Num" => Primitive::Num,
+    "Str" => Primitive::Str,
+    "Bool" => Primitive::Bool,
+};
+
+Bool: bool = { "true" => true, "false" => false };
+Str: String = r#""([^"]*)""# => String::from(<>);
 Var: String = r"[a-zA-Z]+" => String::from(<>);
 Num: f64 = r"[0-9]+(\.[0-9]+)?" => f64::from_str(<>).unwrap();

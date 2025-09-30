@@ -1,19 +1,25 @@
 #[derive(Debug)]
 pub enum Statement {
-    LetDeclaration {
+    Assignment {
         var: String,
         r#type: Option<Primitive>,
-        value: Expr,
+        value: Box<Expr>,
     },
-    Expression(Expr),
+    Expression(Box<Expr>),
 }
 
 #[derive(Debug)]
 pub enum Expr {
     Num(f64),
+    Str(String),
+    Bool(bool),
     Var(String),
     BinaryOp(Box<Expr>, BinaryOp, Box<Expr>),
     UnaryOp(UnaryOp, Box<Expr>),
+    LocalBinding {
+        declarations: Vec<Statement>,
+        expression: Box<Expr>,
+    },
 }
 
 #[derive(Debug)]
